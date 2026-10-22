@@ -66,7 +66,7 @@ static void select_league(MenuIndex cell_index) {
     prompt_hide();
     persist_write_bool(KEY_PERSIST_CONFIG_STATUS, true);
   } else {
-    sports_set_selected_league(cell_index.section);
+    sports_set_selected_league(sports_get_visible_league(cell_index.section));
     win_games_push();
   }
 }
@@ -92,7 +92,7 @@ static void set_compositing_mode(GContext *ctx) {
 }
 
 static void draw_leagues_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index) {
-  const uint16_t section = cell_index->section;
+  const uint16_t section = sports_get_visible_league(cell_index->section);
   const uint16_t row = cell_index->row;
   const GRect bounds = layer_get_bounds(cell_layer);
   if (row != 0) {
@@ -157,7 +157,7 @@ static void menu_draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuI
 }
 
 static uint16_t menu_get_num_sections_callback(struct MenuLayer *menu_layer, void *context) {
-  return sports_get_num_leagues();
+  return sports_get_num_visible_leagues();
 }
 
 static uint16_t menu_get_num_rows_callback(struct MenuLayer *menu_layer, uint16_t section_index,

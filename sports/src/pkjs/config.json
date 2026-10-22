@@ -1,0 +1,29 @@
+[
+  { 
+    "type": "heading", 
+    "defaultValue": "Pebble Sports" 
+  }, 
+  { 
+    "type": "text", 
+    "defaultValue": "Welcome to Pebble Sports! Use this configuration page to toggle visible leagues and other settings." 
+  },
+  {
+    "type": "section",
+    "items": [
+      {
+        "type": "heading",
+        "defaultValue": "Enabled Leagues"
+      },
+      {
+        "type": "checkboxgroup",
+        "messageKey": "leaguesEnabled",
+        "defaultValue": [true, true, true, true, true, true, true, true, true],
+        "options": ["NFL", "MLB", "NHL", "NBA", "WNBA", "NCAAF", "NCAAM", "NCAAW", "Premier League"]
+      }
+    ]
+  },
+  {
+    "type": "submit",
+    "defaultValue": "Save"
+  }
+]

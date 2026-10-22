@@ -3,12 +3,17 @@
 const PEBBLE_SPORTS_API_ROOT = 'https://sports.cluster.repebble.com';
 
 var async = require('async');
+var Clay = require('@rebble/clay');
+
 var Sports = require('./sports');
 var keys = require('./generated/keys');
 var inArray = require('./utils').inArray;
 var formatDate = require('./utils').formatDate;
 var appMessageQueue = require('./lib/appmessagequeue');
 var computeLeadChange = require('./lead-change')(PEBBLE_SPORTS_API_ROOT, localStorage);
+
+var clayConfig = require('./config.json');
+var config = new Clay(clayConfig, null, { autoHandleEvents: false });
 
 var TYPE = keys.TYPE;
 var METHOD = keys.METHOD;
@@ -516,6 +521,23 @@ Sports.loadFavs = function(callback) {
   });
 };
 
+Sports.isLeagueEnabled = function(league) {
+  try {
+    var enabled = JSON.parse(localStorage.getItem('clay-settings')).leaguesEnabled;
+    return !enabled || enabled[league - 1] !== false;
+  } catch (e) {
+    return true;
+  }
+};
+
+Sports.enabledLeagueMask = function() {
+  var mask = 1 << LEAGUE.FAVS;
+  Sports.supportedLeagues.forEach(function (league) {
+    if (Sports.isLeagueEnabled(league)) mask |= 1 << league;
+  });
+  return mask;
+};
+
 /*
  * Refreshes overlap: following a team starts one while the launch refresh is
  * still walking the leagues. When both filled Sports.favs, the second reset it
@@ -530,6 +552,7 @@ Sports.refreshAllLeagues = function(callback) {
   var generation = ++refreshGeneration;
   var collected = [];
 
+  appMessageQueue.send({ type: TYPE.LEAGUES, count: Sports.enabledLeagueMask() });
   async.eachSeries(Sports.supportedLeagues, function(league, next) {
     Sports.sendEvents(league, collected, next);
   }, function() {
@@ -639,6 +662,16 @@ var BUTTONS = [
   'SELECT',
   'DOWN'
 ];
+
+Sports.onShowConfiguration = function () {
+  Pebble.openURL(config.generateUrl());
+}
+
+Sports.onWebViewClosed = function (e) {
+  if (!e || !e.response) return;
+  config.getSettings(e.response, false);
+  Sports.refreshAllLeagues();
+}
 
 Sports.onAppMessage = function(e) {
   console.log('AppMessage received: ' + JSON.stringify(e.payload));

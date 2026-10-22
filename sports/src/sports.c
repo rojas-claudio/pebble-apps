@@ -1,5 +1,6 @@
 #include <pebble.h>
 #include <libs/pebble-assist.h>
+#include <stdint.h>
 // #include "generated/appinfo.h"
 #include "generated/keys.h"
 #include "sports.h"
@@ -38,6 +39,7 @@ static void wakeup_handler(WakeupId id, int32_t cookie);
 #define HEAP_RESERVE_BYTES 2048
 
 static uint16_t s_selected_league = 0;
+static uint16_t s_visible_mask = 0;
 
 #ifdef LOW_MEM
 // Aplite cannot hold every league's games at once: a busy week overran its
@@ -55,6 +57,21 @@ static uint16_t s_selected_card = 0;
 
 static bool s_buzz_on = true;
 static bool s_has_teams = false;
+
+uint16_t sports_get_num_visible_leagues(void) {
+  uint16_t n = 0;
+  for (uint16_t i = 0; i < ARRAY_LENGTH(s_leagues); i++) {
+    n += (s_visible_mask >> i) & 1;
+  }
+  return n;
+}
+
+uint16_t sports_get_visible_league(uint16_t row) {
+  for (uint16_t i = 0; i < ARRAY_LENGTH(s_leagues); i++) {
+    if (((s_visible_mask >> i) & 1) && row-- == 0) return i;
+  }
+  return KEY_LEAGUE_FAVS;
+}
 
 void sports_init(void) {
   app_message_register_inbox_received(in_received_handler);
@@ -357,6 +374,12 @@ static void in_received_handler(DictionaryIterator *iter, void *context) {
           break;
         }
       }
+      break;
+    }
+    case KEY_TYPE_LEAGUES: {
+      tuple = dict_find(iter, MESSAGE_KEY_count);
+      if (tuple) s_visible_mask = tuple->value->uint16 | (1 << KEY_LEAGUE_FAVS);
+      win_leagues_mark_dirty();
       break;
     }
   }

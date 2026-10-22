@@ -29,6 +29,9 @@ uint16_t sports_get_num_leagues();
 uint16_t sports_get_selected_league();
 void sports_set_selected_league(const uint16_t idx);
 
+uint16_t sports_get_num_visible_leagues(void);
+uint16_t sports_get_visible_league(uint16_t row);
+
 const char* sports_get_league_title(const uint16_t idx);
 const char* sports_get_league_subtitle(const uint16_t idx);
 
