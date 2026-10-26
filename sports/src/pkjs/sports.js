@@ -16,6 +16,8 @@ Sports.supportedLeagues = [
   LEAGUE.EPL
 ];
 
+Sports.enabledLeagues = []
+
 Sports.getLeagueName = function(league) {
   switch (league) {
     case LEAGUE.NFL:

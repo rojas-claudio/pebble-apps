@@ -532,9 +532,15 @@ Sports.isLeagueEnabled = function(league) {
 
 Sports.enabledLeagueMask = function() {
   var mask = 1 << LEAGUE.FAVS;
+
   Sports.supportedLeagues.forEach(function (league) {
-    if (Sports.isLeagueEnabled(league)) mask |= 1 << league;
+    if (Sports.isLeagueEnabled(league)) {
+      mask |= 1 << league;
+      Sports.enabledLeagues.push(league);
+    };
   });
+  
+
   return mask;
 };
 
@@ -553,7 +559,7 @@ Sports.refreshAllLeagues = function(callback) {
   var collected = [];
 
   appMessageQueue.send({ type: TYPE.LEAGUES, count: Sports.enabledLeagueMask() });
-  async.eachSeries(Sports.supportedLeagues, function(league, next) {
+  async.eachSeries(Sports.enabledLeagues, function(league, next) {
     Sports.sendEvents(league, collected, next);
   }, function() {
     if (generation === refreshGeneration) {
