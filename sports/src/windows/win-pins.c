@@ -33,15 +33,7 @@ static void window_load(Window *window) {
   s_main_layer = layer_create(bounds);
   layer_add_child(window_layer, s_main_layer);
 
-#if defined(PBL_PLATFORM_EMERY)
-  const GRect progress_rect = GRect(44, 109, 112, 8);
-#elif defined(PBL_PLATFORM_GABBRO)
-  const GRect progress_rect = GRect(bounds.size.w / 4, bounds.size.h / 2, bounds.size.w / 2, 8);
-#elif defined(PBL_ROUND)
-  const GRect progress_rect = GRect(bounds.size.w / 4, bounds.size.h / 2, bounds.size.w / 2, 6);
-#else
-  const GRect progress_rect = GRect(32, 80, 80, 6);
-#endif
+  const GRect progress_rect = PROGRESS_RECT(bounds);
 
   s_progress_layer = progress_layer_create(progress_rect);
   progress_layer_set_progress(s_progress_layer, 20);

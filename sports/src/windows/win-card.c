@@ -14,15 +14,7 @@
 // Height of the footer strip. main_layer_update_proc draws the dotted rule
 // along its top edge, so both must read the same value or the line detaches
 // from the footer it belongs to.
-#if defined(PBL_PLATFORM_EMERY)
-#define CARD_FOOTER_H 35
-#elif defined(PBL_PLATFORM_GABBRO)
-#define CARD_FOOTER_H 68
-#elif defined(PBL_ROUND)
-#define CARD_FOOTER_H 47
-#else
-#define CARD_FOOTER_H 26
-#endif
+#define CARD_FOOTER_H LAYOUT_SWITCH(26, 47, 35, 68)
 
 static void handle_tick(struct tm *tick_time, TimeUnits units_changed);
 static void click_config_provider(void *context);
@@ -76,7 +68,7 @@ void win_card_init(void) {
   // The 72/48 pair only exists on emery/gabbro and the 54/36 pair only on the
   // others (see targetPlatforms in package.json), so these resource IDs are not
   // interchangeable — referencing the wrong one fails at compile time.
-#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
+#if SIZE_IS_LARGE
   s_font_score_large = fonts_load_custom_font(
       resource_get_handle(RESOURCE_ID_FONT_LECO_72_LIGHT));
   s_font_score_small = fonts_load_custom_font(
@@ -237,11 +229,8 @@ static void set_compositing_mode(GContext *ctx) {
 }
 
 static void draw_status_bar(GContext *ctx, GRect box) {
-#if (PBL_DISPLAY_HEIGHT >= 200)
-  const int16_t MARGIN = 8;
-#else
-  const int16_t MARGIN = 6;
-#endif
+  const int16_t MARGIN = SIZE_SWITCH(6, 8);
+  const GFont font = fonts_get_system_font(STATUS_FONT);
 
   // STATUS_TEXT_OFFSET (config.h) is shared with win-games' header so the two
   // screens put their status text on the same baseline; it used to be a private
@@ -259,13 +248,8 @@ static void draw_status_bar(GContext *ctx, GRect box) {
 
   const bool should_draw = PBL_IF_RECT_ELSE(true, time_showing);
   if (should_draw) {
-#if (PBL_DISPLAY_HEIGHT >= 200)
-    graphics_draw_text(ctx, time_text, fonts_get_system_font(FONT_KEY_GOTHIC_18), status_box,
+    graphics_draw_text(ctx, time_text, font, status_box,
       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-#else
-    graphics_draw_text(ctx, time_text, fonts_get_system_font(FONT_KEY_GOTHIC_14), status_box,
-      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-#endif
   }
 
   char pagination_text[6];
@@ -277,34 +261,19 @@ static void draw_status_bar(GContext *ctx, GRect box) {
   }
 
 #ifdef PBL_RECT
-#if (PBL_DISPLAY_HEIGHT >= 200)
-  graphics_draw_text(ctx, pagination_text, fonts_get_system_font(FONT_KEY_GOTHIC_18), status_box,
+  graphics_draw_text(ctx, pagination_text, font, status_box,
                     GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
-#else
-  graphics_draw_text(ctx, pagination_text, fonts_get_system_font(FONT_KEY_GOTHIC_14), status_box,
-                    GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
-#endif
   prv_draw_dotted_line(ctx, GPoint(box.origin.y, box.size.h), box.size.w, false);
 
   if (card_get_data()->gameState == KEY_GAMESTATE_INGAME) {
     graphics_context_set_text_color(ctx, COLOR_FALLBACK(SPORTS_DEFAULT_COLOR, GColorBlack));
-#if (PBL_DISPLAY_HEIGHT >= 200)
-    graphics_draw_text(ctx, "LIVE", fonts_get_system_font(FONT_KEY_GOTHIC_18), status_box,
+    graphics_draw_text(ctx, "LIVE", font, status_box,
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-#else
-    graphics_draw_text(ctx, "LIVE", fonts_get_system_font(FONT_KEY_GOTHIC_14), status_box,
-                      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-#endif
   }
 #elif PBL_ROUND
-if (!time_showing) {
-#if (PBL_DISPLAY_HEIGHT >= 200)
-    graphics_draw_text(ctx, pagination_text, fonts_get_system_font(FONT_KEY_GOTHIC_18), status_box,
+  if (!time_showing) {
+    graphics_draw_text(ctx, pagination_text, font, status_box,
                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-#else
-    graphics_draw_text(ctx, pagination_text, fonts_get_system_font(FONT_KEY_GOTHIC_14), status_box,
-                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-#endif
   }
 #endif
 }
@@ -318,6 +287,19 @@ static void draw_league(GContext *ctx, GRect box) {
   icon_box.size = GSize(25, 25);
 
   GBitmap *icon = sports_get_selected_card_icon();
+
+  // One font for both the measurement and the draw. When these diverged, gabbro
+  // measured "NFL" at GOTHIC_18_BOLD's 25px, drew it at GOTHIC_24_BOLD's 33px,
+  // and the box it had just been given clipped it to "N...". On round,
+  // text_width feeds the icon and bell positions too, so a short measurement
+  // also pulled the whole group off centre.
+  const GFont league_font = fonts_get_system_font(SIZE_SWITCH(FONT_KEY_GOTHIC_18_BOLD,
+                                                              FONT_KEY_GOTHIC_24_BOLD));
+  // The two 25x25 icons are centred on the 25px strip exactly. GOTHIC_24_BOLD
+  // lays its ink at +10..+23 inside its box, centring it at +16.5 rather than
+  // the strip's +12.5, so the text rendered 4.5px below both icons.
+  // GOTHIC_18_BOLD centres its ink at +12 and needs no nudge.
+  const int16_t league_dy = SIZE_SWITCH(0, -4);
 
 #ifdef PBL_RECT
   if (icon != NULL) {
@@ -341,27 +323,10 @@ static void draw_league(GContext *ctx, GRect box) {
   GRect league_box = box;
   league_box.origin.x += icon_box.size.w + 4;
   league_box.size.w -= league_box.origin.x;
+  league_box.origin.y += league_dy;
 
-#if (PBL_DISPLAY_HEIGHT >= 200)
-  // The two 25x25 icons are centred on the 25px strip exactly. GOTHIC_24_BOLD
-  // lays its ink at +10..+23 inside its box, centring it at +16.5 rather than
-  // the strip's +12.5, so the text rendered 4.5px below both icons. The 144px
-  // branch below needs no nudge: GOTHIC_18_BOLD centres its ink at +12.
-  league_box.origin.y -= 4;
-  graphics_draw_text(ctx, card_get_data()->league,
-                     fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
-                     league_box,
-                     GTextOverflowModeTrailingEllipsis,
-                     GTextAlignmentLeft,
-                     NULL);
-#else
-  graphics_draw_text(ctx, card_get_data()->league,
-                    fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
-                    league_box,
-                    GTextOverflowModeTrailingEllipsis,
-                    GTextAlignmentLeft,
-                    NULL);
-#endif
+  graphics_draw_text(ctx, card_get_data()->league, league_font, league_box,
+                     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
 
 #elif PBL_ROUND
   const uint16_t icon_to_text = 4;
@@ -379,19 +344,7 @@ static void draw_league(GContext *ctx, GRect box) {
     draw_icon = true;
   }
 
-  // One font for both the measurement and the draw. When these diverged, gabbro
-  // measured "NFL" at GOTHIC_18_BOLD's 25px, drew it at GOTHIC_24_BOLD's 33px,
-  // and the box it had just been given clipped it to "N...". text_width feeds
-  // the icon and bell positions too, so a short measurement also pulled the
-  // whole group off centre.
-#if (PBL_DISPLAY_HEIGHT >= 200)
-  const GFont league_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-  // GOTHIC_24_BOLD centres its ink at +16.5 in the 25px strip against the two
-  // icons' +12.5, so it needs the same -4 nudge the rect branch above uses.
-  league_box.origin.y -= 4;
-#else
-  const GFont league_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-#endif
+  league_box.origin.y += league_dy;
 
   league_box.size.w = graphics_text_layout_get_content_size(card_get_data()->league,
                                                             league_font,
@@ -431,87 +384,29 @@ static void draw_ingame(GContext *ctx, GRect box) {
   // The round platforms inset the columns so they clear the curved edge; the
   // rect ones run the full width. emery scales the 144x168 layout by ~1.36 and
   // gabbro scales chalk's 180x180 layout by ~1.44 (see window_load).
-#if PBL_PLATFORM_EMERY
-    GFont score_font = s_font_score_large;
-    GFont name_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
+  const int16_t inset = LAYOUT_SWITCH(0, 18, 0, 26);
+  const int16_t half = box.size.w / 2;
+  GFont score_font = s_font_score_large;
+  const GFont name_font = fonts_get_system_font(SIZE_SWITCH(FONT_KEY_GOTHIC_18_BOLD,
+                                                            FONT_KEY_GOTHIC_24_BOLD));
 
-    GRect score_away_box = box;
-    score_away_box.origin.y -= 3;
-    score_away_box.size.w = box.size.w / 2;
-    score_away_box.size.h = 76;
+  GRect score_away_box = box;
+  score_away_box.origin.x = inset;
+  score_away_box.origin.y -= SIZE_SWITCH(2, 3);
+  score_away_box.size.w = half - inset;
+  score_away_box.size.h = LAYOUT_SWITCH(56, 56, 76, 81);
 
-    GRect score_home_box = score_away_box;
-    score_home_box.origin.x = box.size.w / 2;
+  GRect score_home_box = score_away_box;
+  score_home_box.origin.x = half;
 
-    GRect name_away_box = box;
-    name_away_box.origin.y = box.origin.y + 69;
-    name_away_box.size.w = box.size.w / 2;
-    name_away_box.size.h = 27;
+  GRect name_away_box = box;
+  name_away_box.origin.x = inset;
+  name_away_box.origin.y = box.origin.y + LAYOUT_SWITCH(51, 51, 69, 74);
+  name_away_box.size.w = half - inset;
+  name_away_box.size.h = LAYOUT_SWITCH(20, 20, 27, 29);
 
-    GRect name_home_box = name_away_box;
-    name_home_box.origin.x = box.size.w / 2;
-#elif PBL_PLATFORM_GABBRO
-    GFont score_font = s_font_score_large;
-    GFont name_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-
-    GRect score_away_box = box;
-    score_away_box.origin.y -= 3;
-    score_away_box.origin.x = 26;
-    score_away_box.size.w = 104;
-    score_away_box.size.h = 81;
-
-    GRect score_home_box = score_away_box;
-    score_home_box.origin.x = 130;
-
-    GRect name_away_box = box;
-    name_away_box.origin.y = box.origin.y + 74;
-    name_away_box.origin.x = 26;
-    name_away_box.size.w = 104;
-    name_away_box.size.h = 29;
-
-    GRect name_home_box = name_away_box;
-    name_home_box.origin.x = 130;
-#elif PBL_RECT
-    GFont score_font = s_font_score_large;
-    GFont name_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-    GRect score_away_box = box;
-    score_away_box.origin.y -= 2;
-    score_away_box.size.w = 72;
-    score_away_box.size.h = 56;
-
-    GRect score_home_box = score_away_box;
-    score_home_box.origin.x = box.size.w / 2;
-
-
-
-    GRect name_away_box = box;
-    name_away_box.origin.y = box.origin.y + 51;
-    name_away_box.size.w = (box.size.w / 2) - (name_away_box.origin.x * 2);
-    name_away_box.size.h = 20;
-
-    GRect name_home_box = name_away_box;
-    name_home_box.origin.x = box.size.w / 2;
-#elif PBL_ROUND
-    GFont score_font = s_font_score_large;
-    GFont name_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-    GRect score_away_box = box;
-    score_away_box.origin.y -= 2;
-    score_away_box.origin.x = 18;
-    score_away_box.size.w = 72;
-    score_away_box.size.h = 56;
-
-    GRect score_home_box = score_away_box;
-    score_home_box.origin.x = 90;
-
-    GRect name_away_box = box;
-    name_away_box.origin.y = box.origin.y + 51;
-    name_away_box.origin.x = 18;
-    name_away_box.size.w = 72;
-    name_away_box.size.h = 20;
-
-    GRect name_home_box = name_away_box;
-    name_home_box.origin.x = 90;
-#endif
+  GRect name_home_box = name_away_box;
+  name_home_box.origin.x = half;
 
   // A 3+ digit score needs the smaller face, which sits higher in its box —
   // hence the nudge down for the score and up for the name beneath it.
@@ -519,13 +414,8 @@ static void draw_ingame(GContext *ctx, GRect box) {
     score_font = s_font_score_small;
 
     // Scaled with the fonts: 72->48 opens a wider gap than 54->36 does.
-#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
-    const int16_t score_dy = 10;
-    const int16_t name_dy = 7;
-#else
-    const int16_t score_dy = 7;
-    const int16_t name_dy = 5;
-#endif
+    const int16_t score_dy = SIZE_SWITCH(7, 10);
+    const int16_t name_dy = SIZE_SWITCH(5, 7);
 
     score_away_box.origin.y += score_dy;
     score_home_box.origin.y += score_dy;
@@ -549,13 +439,12 @@ static void draw_ingame(GContext *ctx, GRect box) {
 static void draw_pregame(GContext *ctx, GRect box) {
   // GOTHIC_28_BOLD is the largest bold system face, so emery/gabbro scale the
   // boxes and step the record line up rather than the name line.
-#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
-  const int16_t name_top = 17, name_h = 41, record_gap = 14, record_h = 27;
-  GFont record_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-#else
-  const int16_t name_top = 12, name_h = 30, record_gap = 10, record_h = 20;
-  GFont record_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-#endif
+  const int16_t name_top = SIZE_SWITCH(12, 17);
+  const int16_t name_h = SIZE_SWITCH(30, 41);
+  const int16_t record_gap = SIZE_SWITCH(10, 14);
+  const int16_t record_h = SIZE_SWITCH(20, 27);
+  GFont record_font = fonts_get_system_font(SIZE_SWITCH(FONT_KEY_GOTHIC_18_BOLD,
+                                                        FONT_KEY_GOTHIC_24_BOLD));
 
   GFont name_font = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
 
@@ -616,11 +505,7 @@ static void game_layer_update_proc(Layer *layer, GContext *ctx) {
 
 static void footer_layer_update_proc(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
-#if (PBL_DISPLAY_WIDTH >= 200)
-    GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-#else
-    GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-#endif
+  GFont font = fonts_get_system_font(SIZE_SWITCH(FONT_KEY_GOTHIC_18_BOLD, FONT_KEY_GOTHIC_24_BOLD));
   GRect subtitle_box = bounds;
 
 #ifdef PBL_RECT
@@ -655,6 +540,9 @@ static void footer_layer_update_proc(Layer *layer, GContext *ctx) {
 
 
 #elif PBL_ROUND
+  // The second line sits one subtitle line-height down.
+  const int16_t second_line_dy = SIZE_SWITCH(18, 24);
+
   graphics_context_set_text_color(ctx, COLOR_FALLBACK(SPORTS_DEFAULT_COLOR, GColorBlack));
   graphics_draw_text(ctx, card_get_data()->subtitle, font, subtitle_box,
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
@@ -662,11 +550,7 @@ static void footer_layer_update_proc(Layer *layer, GContext *ctx) {
   if (card_get_data()->gameState == KEY_GAMESTATE_INGAME && (live_showing ||
       !*card_get_data()->broadcaster)) {
     GRect broadcaster_box = bounds;
-#if (PBL_DISPLAY_HEIGHT >= 200)
-    broadcaster_box.origin.y += 24;
-#else
-    broadcaster_box.origin.y += 18;
-#endif
+    broadcaster_box.origin.y += second_line_dy;
     graphics_context_set_text_color(ctx, COLOR_FALLBACK(SPORTS_DEFAULT_COLOR, GColorBlack));
     graphics_draw_text(ctx, "LIVE", font, broadcaster_box, GTextOverflowModeTrailingEllipsis,
                        GTextAlignmentCenter, NULL);
@@ -675,11 +559,7 @@ static void footer_layer_update_proc(Layer *layer, GContext *ctx) {
   if (*card_get_data()->broadcaster && (!live_showing ||
       !card_get_data()->gameState == KEY_GAMESTATE_INGAME)) {
     GRect broadcaster_box = bounds;
-#if (PBL_DISPLAY_HEIGHT >= 200)
-        broadcaster_box.origin.y += 24;
-#else
-        broadcaster_box.origin.y += 18;
-#endif
+    broadcaster_box.origin.y += second_line_dy;
     graphics_draw_text(ctx, card_get_data()->broadcaster, font, broadcaster_box,
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
   }
@@ -761,23 +641,12 @@ static void window_load(Window *window) {
   // scales chalk's 180x180 round layout by ~1.44. The league strip keeps its
   // 25px height on every platform because the icons drawn into it are 25x25
   // bitmaps and graphics_draw_bitmap_in_rect does not resample.
-#if defined(PBL_PLATFORM_EMERY)
-  const int16_t league_x = 12, league_y = 27;
-  const int16_t game_y = 71, game_h = 114;
-  const GRect progress_rect = GRect(44, 109, 112, 8);
-#elif defined(PBL_PLATFORM_GABBRO)
-  const int16_t league_x = 0, league_y = 39;
-  const int16_t game_y = 75, game_h = 121;
-  const GRect progress_rect = GRect(bounds.size.w / 4, bounds.size.h / 2, bounds.size.w / 2, 8);
-#elif defined(PBL_ROUND)
-  const int16_t league_x = 0, league_y = 27;
-  const int16_t game_y = 52, game_h = 84;
-  const GRect progress_rect = GRect(bounds.size.w / 4, bounds.size.h / 2, bounds.size.w / 2, 6);
-#else
-  const int16_t league_x = 9, league_y = 27;
-  const int16_t game_y = 52, game_h = 84;
-  const GRect progress_rect = GRect(32, 80, 80, 6);
-#endif
+  //                                    rect   round  emery  gabbro
+  const int16_t league_x = LAYOUT_SWITCH(9,     0,     12,    0);
+  const int16_t league_y = LAYOUT_SWITCH(27,    27,    27,    39);
+  const int16_t game_y   = LAYOUT_SWITCH(52,    52,    71,    75);
+  const int16_t game_h   = LAYOUT_SWITCH(84,    84,    114,   121);
+  const GRect progress_rect = PROGRESS_RECT(bounds);
 
   s_league_layer = layer_create(GRect(league_x, league_y, bounds.size.w - (league_x * 2), 25));
 

@@ -115,9 +115,8 @@ static void draw_games_row_rect(GContext *ctx, const Layer *cell_layer, MenuInde
   const uint16_t row = cell_index->row;
   const GRect bounds = layer_get_bounds(cell_layer);
   const GFont font_gothic_24_bold = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-#ifdef PBL_PLATFORM_EMERY
-  const GFont font_gothic_28_bold = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
-#endif
+  const GFont name_font = fonts_get_system_font(SIZE_SWITCH(FONT_KEY_GOTHIC_24_BOLD,
+                                                            FONT_KEY_GOTHIC_28_BOLD));
   set_compositing_mode(ctx);
   if (sports_get_num_cards() == 0) {
     char *title = get_title_status();
@@ -126,22 +125,16 @@ static void draw_games_row_rect(GContext *ctx, const Layer *cell_layer, MenuInde
     graphics_fill_rect(ctx, bounds, 0, GCornerNone);
 #endif
     graphics_context_set_text_color(ctx, COLOR_FALLBACK(GColorLightGray, GColorBlack));
+    // Measured at GOTHIC_24_BOLD on every size, though emery draws at
+    // GOTHIC_28_BOLD; emery's -7 was tuned against that measurement.
     const uint16_t title_height =
         graphics_text_layout_get_content_size(title, font_gothic_24_bold, bounds,
                                               GTextOverflowModeTrailingEllipsis,
                                               GTextAlignmentCenter).h;
-#ifdef PBL_PLATFORM_EMERY
-    const uint16_t y_offset = (bounds.size.h - title_height) / 2 - 7;
-    graphics_draw_text(ctx, title, font_gothic_28_bold, GRect(0, y_offset, bounds.size.w,
-                                                              bounds.size.h),
+    const uint16_t y_offset =
+        (bounds.size.h - title_height) / 2 + SIZE_SWITCH(PBL_IF_COLOR_ELSE(10, -25), -7);
+    graphics_draw_text(ctx, title, name_font, GRect(0, y_offset, bounds.size.w, bounds.size.h),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-#else
-    const uint16_t y_offset = (bounds.size.h - title_height) / 2 + PBL_IF_COLOR_ELSE(10, -25);
-    graphics_draw_text(ctx, title, font_gothic_24_bold, GRect(0, y_offset, bounds.size.w,
-                                                              bounds.size.h),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-#endif
-
   } else {
     graphics_context_set_fill_color(ctx, menu_cell_layer_is_highlighted(cell_layer) ?
                                          COLOR_FALLBACK(SPORTS_DEFAULT_COLOR, GColorBlack) :
@@ -153,51 +146,37 @@ static void draw_games_row_rect(GContext *ctx, const Layer *cell_layer, MenuInde
     const CardData *data = sports_get_card_data(row);
     const bool is_pregame = data->gameState == KEY_GAMESTATE_PREGAME;
 
-#ifdef PBL_PLATFORM_EMERY
-    // The y values are box origins, not glyph positions: GOTHIC_28_BOLD lays
-    // its ink 10px below the box top and runs 18px, so -4 puts the first row's
-    // caps 6px into the cell and 19 leaves a 5px gap under them — the same
-    // 6/5/5/6 rhythm the 144px layout below gets from -4/15/39 in a 59px cell.
-    // The 30 is ink (28) + 2 slack; at 26 the box cut the last pixel row off
-    // every name and score.
-    graphics_draw_text(ctx, data->nameAway, font_gothic_28_bold, GRect(9, -2, 182, 30),
-                    GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-    graphics_draw_text(ctx, data->nameHome, font_gothic_28_bold, GRect(9, 22, 182, 30),
-                    GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+    // The y values are box origins, not glyph positions. On 144px,
+    // GOTHIC_24_BOLD at -4/15/39 in a 59px cell gives a 6/5/5/6 rhythm. emery
+    // keeps it at GOTHIC_28_BOLD, which lays its ink 10px below the box top and
+    // runs 18px: -2 puts the first row's caps 6px into the cell and 22 leaves a
+    // 5px gap under them. emery's name box is ink (28) + 2 slack; at 26 it cut
+    // the last pixel row off every name and score.
+    const int16_t x = 9;
+    const int16_t w = bounds.size.w - (x * 2);
+    const int16_t away_y = SIZE_SWITCH(-4, -2);
+    const int16_t home_y = SIZE_SWITCH(15, 22);
+    const int16_t name_h = SIZE_SWITCH(26, 30);
+    const GFont subtitle_font = fonts_get_system_font(SIZE_SWITCH(FONT_KEY_GOTHIC_14,
+                                                                  FONT_KEY_GOTHIC_18));
+    const GRect subtitle_rect = GRect(x, SIZE_SWITCH(39, bounds.size.h - 26), w, 20);
 
-    graphics_draw_text(ctx, is_pregame ? data->recordAway : data->scoreAway,
-                    font_gothic_28_bold, GRect(9, -2, 182, 30),
-                    GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
-    graphics_draw_text(ctx, is_pregame ? data->recordHome : data->scoreHome,
-                    font_gothic_28_bold, GRect(9, 22, 182, 30),
-                    GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
-
-    graphics_draw_text(ctx, data->subtitle, fonts_get_system_font(FONT_KEY_GOTHIC_18),
-                    GRect(9, bounds.size.h - 26, 182, 20), GTextOverflowModeTrailingEllipsis,
-                    GTextAlignmentRight, NULL);
-    graphics_draw_text(ctx, data->league, fonts_get_system_font(FONT_KEY_GOTHIC_18),
-                    GRect(9, bounds.size.h - 26, 182, 20), GTextOverflowModeTrailingEllipsis,
-                    GTextAlignmentLeft, NULL);
-#else
-    graphics_draw_text(ctx, data->nameAway, font_gothic_24_bold, GRect(9, -4, 126, 26),
+    graphics_draw_text(ctx, data->nameAway, name_font, GRect(x, away_y, w, name_h),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-    graphics_draw_text(ctx, data->nameHome, font_gothic_24_bold, GRect(9, 15, 126, 26),
+    graphics_draw_text(ctx, data->nameHome, name_font, GRect(x, home_y, w, name_h),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
 
     graphics_draw_text(ctx, is_pregame ? data->recordAway : data->scoreAway,
-                       font_gothic_24_bold, GRect(9, -4, 126, 26),
+                       name_font, GRect(x, away_y, w, name_h),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
     graphics_draw_text(ctx, is_pregame ? data->recordHome : data->scoreHome,
-                       font_gothic_24_bold, GRect(9, 15, 126, 26),
+                       name_font, GRect(x, home_y, w, name_h),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
 
-    graphics_draw_text(ctx, data->subtitle, fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                      GRect(9, 39, 126, 20), GTextOverflowModeTrailingEllipsis,
-                      GTextAlignmentRight, NULL);
-    graphics_draw_text(ctx, data->league, fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                       GRect(9, 39, 126, 20), GTextOverflowModeTrailingEllipsis,
-                       GTextAlignmentLeft, NULL);
-#endif
+    graphics_draw_text(ctx, data->subtitle, subtitle_font, subtitle_rect,
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
+    graphics_draw_text(ctx, data->league, subtitle_font, subtitle_rect,
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
   }
 }
 
@@ -210,39 +189,23 @@ static bool menu_layer_cell_is_selected(MenuIndex *cell_index) {
 static void draw_games_row_round(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index) {
   const uint16_t row = cell_index->row;
   const GRect bounds = layer_get_bounds(cell_layer);
-  
-#ifdef PBL_PLATFORM_GABBRO
-  const GFont font_gothic_28_bold = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
-#endif
   const GFont font_gothic_24_bold = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-  
+  const GFont name_font = fonts_get_system_font(SIZE_SWITCH(FONT_KEY_GOTHIC_24_BOLD,
+                                                            FONT_KEY_GOTHIC_28_BOLD));
+
   set_compositing_mode(ctx);
   if (sports_get_num_cards() == 0) {
     char *title = get_title_status();
     graphics_context_set_text_color(ctx, COLOR_FALLBACK(GColorLightGray, GColorBlack));
-    
-#ifdef PBL_PLATFORM_GABBRO
+
     const uint16_t title_height =
-        graphics_text_layout_get_content_size(title, font_gothic_28_bold, bounds,
-                                            GTextOverflowModeTrailingEllipsis,
-                                            GTextAlignmentCenter).h;
+        graphics_text_layout_get_content_size(title, name_font, bounds,
+                                              GTextOverflowModeTrailingEllipsis,
+                                              GTextAlignmentCenter).h;
     const uint16_t y_offset = (bounds.size.h / 2) - (title_height / 2);
 
-    graphics_draw_text(ctx, title, font_gothic_28_bold, GRect(0, y_offset, bounds.size.w,
-                                                              bounds.size.h),
+    graphics_draw_text(ctx, title, name_font, GRect(0, y_offset, bounds.size.w, bounds.size.h),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-#else
-    const uint16_t title_height =
-        graphics_text_layout_get_content_size(title, font_gothic_24_bold, bounds,
-                                            GTextOverflowModeTrailingEllipsis,
-                                            GTextAlignmentCenter).h;
-    const uint16_t y_offset = (bounds.size.h / 2) - (title_height / 2);
-
-    graphics_draw_text(ctx, title, font_gothic_24_bold, GRect(0, y_offset, bounds.size.w,
-                                                              bounds.size.h),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-    
-#endif
   } else {
     graphics_context_set_fill_color(ctx, menu_cell_layer_is_highlighted(cell_layer) ?
                                          COLOR_FALLBACK(SPORTS_DEFAULT_COLOR, GColorBlack) :
@@ -254,66 +217,43 @@ static void draw_games_row_round(GContext *ctx, const Layer *cell_layer, MenuInd
     const CardData *data = sports_get_card_data(row);
     const int16_t text_buffer_length = 64;
     char text[text_buffer_length];
+    const int16_t w = bounds.size.w;
 
-#ifdef PBL_PLATFORM_GABBRO
-    graphics_draw_text(ctx, "@", font_gothic_24_bold, GRect(0, 0, 260, 26),
+    graphics_draw_text(ctx, "@", font_gothic_24_bold, GRect(0, 0, w, 26),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 
     if (menu_layer_cell_is_selected(cell_index)) {
       bool is_pregame = data->gameState == KEY_GAMESTATE_PREGAME;
-      graphics_draw_text(ctx, data->nameAway, font_gothic_28_bold, GRect(0, 0, 94, 26),
+      // Team columns either side of the "@", pulled in from the curved edge.
+      const int16_t col_w = SIZE_SWITCH(65, 94);
+      const int16_t score_y = SIZE_SWITCH(20, 29);
+
+      graphics_draw_text(ctx, data->nameAway, name_font, GRect(0, 0, col_w, 26),
                          GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
-      graphics_draw_text(ctx, data->nameHome, font_gothic_28_bold, GRect(166, 0, 94, 26),
+      graphics_draw_text(ctx, data->nameHome, name_font, GRect(w - col_w, 0, col_w, 26),
                          GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
 
       graphics_draw_text(ctx, is_pregame ? data->recordAway : data->scoreAway,
-                         font_gothic_28_bold, GRect(0, 29, 94, 26),
+                         name_font, GRect(0, score_y, col_w, 26),
                          GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
       graphics_draw_text(ctx, is_pregame ? data->recordHome : data->scoreHome,
-                         font_gothic_28_bold, GRect(166, 29, 94, 26),
+                         name_font, GRect(w - col_w, score_y, col_w, 26),
                          GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
 
-      // Anchored to the cell bottom rather than a fixed y, so it tracks any
-      // change to the gabbro cell height instead of silently drifting.
+      // On gabbro this is anchored to the cell bottom rather than a fixed y, so
+      // it tracks any change to the cell height instead of silently drifting.
       snprintf(text, sizeof(text), "%s - %s", data->league, data->subtitle);
-      graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_GOTHIC_24),
-                         GRect(0, bounds.size.h - 38, 260, 20),
+      graphics_draw_text(ctx, text,
+                         fonts_get_system_font(SIZE_SWITCH(FONT_KEY_GOTHIC_14, FONT_KEY_GOTHIC_24)),
+                         GRect(0, SIZE_SWITCH(45, bounds.size.h - 38), w, 20),
                          GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
     } else {
-      graphics_draw_text(ctx, data->nameAway, font_gothic_28_bold, GRect(0, 0, 108, 26),
+      const int16_t col_w = SIZE_SWITCH(75, 108);
+      graphics_draw_text(ctx, data->nameAway, name_font, GRect(0, 0, col_w, 26),
                          GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
-      graphics_draw_text(ctx, data->nameHome, font_gothic_28_bold, GRect(152, 0, 108, 26),
+      graphics_draw_text(ctx, data->nameHome, name_font, GRect(w - col_w, 0, col_w, 26),
                          GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
     }
-#else
-    graphics_draw_text(ctx, "@", font_gothic_24_bold, GRect(0, 0, 180, 26),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-
-    if (menu_layer_cell_is_selected(cell_index)) {
-      bool is_pregame = data->gameState == KEY_GAMESTATE_PREGAME;
-      graphics_draw_text(ctx, data->nameAway, font_gothic_24_bold, GRect(0, 0, 65, 26),
-                         GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
-      graphics_draw_text(ctx, data->nameHome, font_gothic_24_bold, GRect(115, 0, 65, 26),
-                         GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-
-      graphics_draw_text(ctx, is_pregame ? data->recordAway : data->scoreAway,
-                         font_gothic_24_bold, GRect(0, 20, 65, 26),
-                         GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
-      graphics_draw_text(ctx, is_pregame ? data->recordHome : data->scoreHome,
-                         font_gothic_24_bold, GRect(115, 20, 65, 26),
-                         GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-
-      snprintf(text, sizeof(text), "%s - %s", data->league, data->subtitle);
-      graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                         GRect(0, 45, 180, 20), GTextOverflowModeTrailingEllipsis,
-                         GTextAlignmentCenter, NULL);
-    } else {
-      graphics_draw_text(ctx, data->nameAway, font_gothic_24_bold, GRect(0, 0, 75, 26),
-                         GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
-      graphics_draw_text(ctx, data->nameHome, font_gothic_24_bold, GRect(105, 0, 75, 26),
-                         GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-    }
-#endif
   }
 }
 #endif
@@ -343,28 +283,15 @@ static void menu_select_click_callback(struct MenuLayer *menu_layer, MenuIndex *
 static int16_t menu_get_cell_height_callback(struct MenuLayer *menu_layer, MenuIndex *cell_index,
                                              void *context) {
   if (sports_get_num_cards() > 0) {
-      
-#if PBL_PLATFORM_GABBRO
-    return menu_layer_cell_is_selected(cell_index) ? 100 : 50;
-#elif PBL_PLATFORM_EMERY
-    return 75;
-#else
-    return PBL_IF_RECT_ELSE(59, menu_layer_cell_is_selected(cell_index) ? 70 : 35);
- #endif
-
-  } else {
-      
-#if PBL_PLATFORM_EMERY
-    return PBL_DISPLAY_HEIGHT - STATUS_BAR_LAYER_HEIGHT;
-#elif PBL_PLATFORM_GABBRO
-    // Round viewport is inset at top and bottom, so the full-bleed cell is
-    // shorter than on the rect platforms by one more header height.
-    return PBL_DISPLAY_HEIGHT - (STATUS_BAR_LAYER_HEIGHT * 2);
-#else
-    return PBL_IF_COLOR_ELSE(115, 180);
-#endif
-
+    return PBL_IF_RECT_ELSE(SIZE_SWITCH(59, 75),
+                            menu_layer_cell_is_selected(cell_index) ? SIZE_SWITCH(70, 100)
+                                                                    : SIZE_SWITCH(35, 50));
   }
+  // Full-bleed "no games" cell. On the large sizes it fills the area below the
+  // header; round insets the viewport at top and bottom, so gabbro loses one
+  // more header height.
+  return SIZE_SWITCH(PBL_IF_COLOR_ELSE(115, 180),
+                     PBL_DISPLAY_HEIGHT - STATUS_BAR_LAYER_HEIGHT * PBL_IF_RECT_ELSE(1, 2));
 }
 
 static void window_load(Window *window) {
@@ -412,11 +339,7 @@ static void window_load(Window *window) {
                                           bounds.origin.y + STATUS_TEXT_OFFSET,
                                           bounds.size.w, STATUS_BAR_LAYER_HEIGHT + 4));
   text_layer_set_background_color(s_header_text, GColorClear);
-#if (PBL_DISPLAY_WIDTH >= 200)
-  text_layer_set_font(s_header_text, fonts_get_system_font(FONT_KEY_GOTHIC_18));
-#else
-  text_layer_set_font(s_header_text, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-#endif
+  text_layer_set_font(s_header_text, fonts_get_system_font(STATUS_FONT));
   text_layer_set_text_alignment(s_header_text, GTextAlignmentCenter);
   layer_add_child(window_layer, text_layer_get_layer(s_header_text));
 }

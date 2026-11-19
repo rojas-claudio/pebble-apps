@@ -113,42 +113,23 @@ static void draw_leagues_row(GContext *ctx, const Layer *cell_layer, MenuIndex *
   graphics_context_set_text_color(ctx, PBL_IF_BW_ELSE(GColorBlack, GColorWhite));
 #endif
 
-#if PBL_PLATFORM_GABBRO
+  //                                rect                  round
+  //                                emery                 gabbro
+  const GRect title_rect = LAYOUT_SWITCH(GRect(34, 5, 100, 20),  GRect(40, 5, 90, 20),
+                                         GRect(38, 5, 180, 20),  GRect(38, 7, 160, 28));
+  const GRect subtitle_rect = LAYOUT_SWITCH(GRect(34, 23, 90, 20), GRect(40, 23, 90, 20),
+                                            GRect(38, 30, 150, 20), GRect(38, 31, 150, 20));
+  const GRect icon_rect = LAYOUT_SWITCH(GRect(6, 9, 25, 25),     GRect(125, 11, 25, 25),
+                                        GRect(9, 18, 25, 25),    GRect(197, 23, 25, 25));
+
   graphics_draw_text(ctx, sports_get_league_title(section),
-                     fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD),
-                     GRect(38, 7, 160, 28),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+                     fonts_get_system_font(SIZE_SWITCH(FONT_KEY_GOTHIC_18_BOLD,
+                                                       FONT_KEY_GOTHIC_28_BOLD)),
+                     title_rect, GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
   graphics_draw_text(ctx, sports_get_league_subtitle(section),
-                     fonts_get_system_font(FONT_KEY_GOTHIC_24),
-                     GRect(38, 31, 150, 20),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-  graphics_draw_bitmap_in_rect(ctx, sports_get_league_icon(section),
-                               GRect(197, 23, 25, 25));
-#elif PBL_PLATFORM_EMERY
-  graphics_draw_text(ctx, sports_get_league_title(section),
-                    fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD),
-                    GRect(38, 5, 180, 20),
-                    GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-  graphics_draw_text(ctx, sports_get_league_subtitle(section),
-                    fonts_get_system_font(FONT_KEY_GOTHIC_24),
-                    GRect(38, 30, 150, 20),
-                    GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-  graphics_draw_bitmap_in_rect(ctx, sports_get_league_icon(section),
-                                PBL_IF_RECT_ELSE(GRect(9, 18, 25, 25),
-                                                GRect(186, 23, 25, 25)));
-#else
-  graphics_draw_text(ctx, sports_get_league_title(section),
-                     fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
-                     PBL_IF_RECT_ELSE(GRect(34, 5, 100, 20), GRect(40, 5, 90, 20)),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-  graphics_draw_text(ctx, sports_get_league_subtitle(section),
-                     fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                     PBL_IF_RECT_ELSE(GRect(34, 23, 90, 20), GRect(40, 23, 90, 20)),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-  graphics_draw_bitmap_in_rect(ctx, sports_get_league_icon(section),
-                               PBL_IF_RECT_ELSE(GRect(6, 9, 25, 25),
-                                                GRect(125, 11, 25, 25)));
-#endif
+                     fonts_get_system_font(SIZE_SWITCH(FONT_KEY_GOTHIC_14, FONT_KEY_GOTHIC_24)),
+                     subtitle_rect, GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+  graphics_draw_bitmap_in_rect(ctx, sports_get_league_icon(section), icon_rect);
 }
 
 static void menu_draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
@@ -172,13 +153,7 @@ static void menu_select_click_callback(struct MenuLayer *menu_layer, MenuIndex *
 
 static int16_t menu_get_cell_height_callback(struct MenuLayer *menu_layer, MenuIndex *cell_index,
                                              void *context) {
-#if PBL_PLATFORM_GABBRO
-    return 72;
-#elif PBL_PLATFORM_EMERY
-    return 67;
-#else
-    return 50;
-#endif
+  return LAYOUT_SWITCH(50, 50, 67, 72);
 }
 
 static void window_load(Window *window) {
@@ -186,17 +161,12 @@ static void window_load(Window *window) {
   
   window_set_background_color(window, GColorBlack);
   
-#if PBL_PLATFORM_EMERY
   const GRect bounds = layer_get_bounds(window_layer);
-  s_menu_layer = menu_layer_create(bounds);
-#elif PBL_PLATFORM_GABBRO
-  s_menu_layer = menu_layer_create(GRect(0, 15, 260, 230));
+#if PBL_ROUND
+  // 15px inset top and bottom keeps the centred focus row clear of the bezel.
+  s_menu_layer = menu_layer_create(GRect(0, 15, bounds.size.w, bounds.size.h - 30));
   menu_layer_set_center_focused(s_menu_layer, true);
-#elif PBL_ROUND
-  s_menu_layer = menu_layer_create(GRect(0, 15, 180, 150));
-  menu_layer_set_center_focused(s_menu_layer, true);
-#elif PBL_RECT
-  const GRect bounds = layer_get_bounds(window_layer);
+#else
   s_menu_layer = menu_layer_create(bounds);
 #endif
 
